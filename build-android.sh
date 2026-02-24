@@ -13,9 +13,9 @@ echo "============================================"
 echo ""
 echo "[1/8] Installing system dependencies..."
 sudo apt update -y
-sudo apt install -y curl git unzip wget openjdk-17-jdk-headless
+sudo apt install -y curl git unzip wget openjdk-21-jdk-headless
 
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
 echo "export JAVA_HOME=$JAVA_HOME" >> ~/.bashrc
 
 # ---- 2. Install Node.js 22 (required by Capacitor 8) ----
