@@ -15,30 +15,49 @@ echo "[1/8] Installing system dependencies..."
 sudo apt update -y
 sudo apt install -y curl git unzip wget openjdk-17-jdk-headless
 
-# Set JAVA_HOME
 export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 echo "export JAVA_HOME=$JAVA_HOME" >> ~/.bashrc
 
-# ---- 2. Install Node.js 20 ----
+# ---- 2. Install Node.js 22 (required by Capacitor 8) ----
 echo ""
-echo "[2/8] Installing Node.js 20..."
-if ! command -v node &> /dev/null; then
-  curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-  sudo apt install -y nodejs
+echo "[2/8] Installing Node.js 22..."
+
+# Remove old nodejs if present
+sudo apt remove -y nodejs npm 2>/dev/null || true
+
+# Install NVM
+export NVM_DIR="$HOME/.nvm"
+if [ ! -d "$NVM_DIR" ]; then
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
 fi
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+nvm install 22
+nvm use 22
+nvm alias default 22
+
 echo "Node: $(node -v)"
 echo "NPM: $(npm -v)"
 
-# ---- 3. Install Android SDK (command-line tools only, no Android Studio) ----
+# Verify minimum version
+NODE_MAJOR=$(node -v | cut -d'.' -f1 | tr -d 'v')
+if [ "$NODE_MAJOR" -lt 22 ]; then
+  echo "ERROR: Node.js 22+ is required. Got $(node -v)"
+  exit 1
+fi
+
+# ---- 3. Install Android SDK ----
 echo ""
 echo "[3/8] Setting up Android SDK..."
 export ANDROID_HOME=$HOME/android-sdk
 export ANDROID_SDK_ROOT=$ANDROID_HOME
 export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0
 
-echo "export ANDROID_HOME=$ANDROID_HOME" >> ~/.bashrc
-echo "export ANDROID_SDK_ROOT=$ANDROID_HOME" >> ~/.bashrc
-echo 'export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0' >> ~/.bashrc
+cat >> ~/.bashrc << 'ENVEOF'
+export ANDROID_HOME=$HOME/android-sdk
+export ANDROID_SDK_ROOT=$ANDROID_HOME
+export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/34.0.0
+ENVEOF
 
 if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
   mkdir -p $ANDROID_HOME/cmdline-tools
@@ -55,25 +74,34 @@ sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" > /dev/n
 
 echo "Android SDK ready."
 
-# ---- 4. Clone and install project ----
+# ---- 4. Install project dependencies ----
 echo ""
-echo "[4/8] Setting up project..."
+echo "[4/8] Installing project dependencies..."
 if [ ! -f "package.json" ]; then
   echo "ERROR: Run this script from the project root directory!"
-  echo "  git clone <your-repo-url> iplay && cd iplay && ./build-android.sh"
   exit 1
 fi
+
+# Clean install
+rm -rf node_modules package-lock.json
 npm install
 
-# ---- 5. Add Android platform ----
+# ---- 5. Add Android platform (clean) ----
 echo ""
 echo "[5/8] Adding Capacitor Android platform..."
-npx cap add android 2>/dev/null || echo "Android platform already exists"
+rm -rf android
+npx cap add android
 
 # ---- 6. Patch AndroidManifest.xml ----
 echo ""
 echo "[6/8] Patching AndroidManifest.xml..."
 MANIFEST="android/app/src/main/AndroidManifest.xml"
+
+if [ ! -f "$MANIFEST" ]; then
+  echo "ERROR: AndroidManifest.xml not found at $MANIFEST"
+  echo "Capacitor Android platform may not have been added correctly."
+  exit 1
+fi
 
 # Add INTERNET permission if missing
 if ! grep -q "android.permission.INTERNET" "$MANIFEST"; then
@@ -82,7 +110,6 @@ fi
 
 # Add intent-filter for external player mode (video/*)
 if ! grep -q "android.intent.action.VIEW" "$MANIFEST"; then
-  # Insert intent-filter inside the main activity
   sed -i '/<activity/,/<\/activity>/ {
     /<\/activity>/i\
             <intent-filter>\
@@ -94,19 +121,18 @@ if ! grep -q "android.intent.action.VIEW" "$MANIFEST"; then
   }' "$MANIFEST"
 fi
 
-# Add AdMob meta-data (required for admob plugin)
+# Add AdMob meta-data
 if ! grep -q "com.google.android.gms.ads.APPLICATION_ID" "$MANIFEST"; then
   sed -i 's|</application>|        <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713" />\n    </application>|' "$MANIFEST"
 fi
 
 echo "AndroidManifest.xml patched."
 
-# ---- 7. Enable R8/ProGuard for release builds ----
+# ---- 7. Enable R8/ProGuard ----
 echo ""
 echo "[7/8] Enabling ProGuard/R8..."
 GRADLE_FILE="android/app/build.gradle"
 
-# Enable minification in release build type
 if grep -q "minifyEnabled false" "$GRADLE_FILE"; then
   sed -i 's/minifyEnabled false/minifyEnabled true/' "$GRADLE_FILE"
   echo "ProGuard/R8 enabled."
@@ -132,10 +158,6 @@ echo ""
 echo "  Debug APK: android/app/build/outputs/apk/debug/app-debug.apk"
 echo ""
 echo "  To build a signed RELEASE APK:"
-echo "    1. Generate keystore:"
-echo "       keytool -genkey -v -keystore iplay.keystore -alias iplay -keyalg RSA -keysize 2048 -validity 10000"
-echo "    2. Build:"
-echo "       cd android && ./gradlew assembleRelease"
-echo ""
-echo "  APK size should be lightweight thanks to R8 code shrinking."
+echo "    keytool -genkey -v -keystore iplay.keystore -alias iplay -keyalg RSA -keysize 2048 -validity 10000"
+echo "    cd android && ./gradlew assembleRelease"
 echo "============================================"
