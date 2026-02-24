@@ -10,7 +10,7 @@ interface StreamItemProps {
 
 export default function StreamItem({ stream, onPlay, onEdit, onDelete }: StreamItemProps) {
   return (
-    <div className="group flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg hover:border-primary/30 transition-colors">
+    <div className="flex items-center justify-between px-4 py-3 bg-card border border-border rounded-lg active:border-primary/30 transition-colors">
       <button
         onClick={() => onPlay(stream)}
         className="flex items-center gap-3 flex-1 min-w-0 text-left"
@@ -20,16 +20,16 @@ export default function StreamItem({ stream, onPlay, onEdit, onDelete }: StreamI
         </div>
         <span className="text-foreground font-medium truncate">{stream.name}</span>
       </button>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1">
         <button
           onClick={() => onEdit(stream)}
-          className="p-2 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+          className="p-2 rounded-md hover:bg-secondary active:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
         >
           <Pencil className="w-4 h-4" />
         </button>
         <button
           onClick={() => onDelete(stream)}
-          className="p-2 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
+          className="p-2 rounded-md hover:bg-destructive/10 active:bg-destructive/10 text-muted-foreground hover:text-destructive active:text-destructive transition-colors"
         >
           <Trash2 className="w-4 h-4" />
         </button>
