@@ -3,7 +3,7 @@ import { Plus, Play, Zap } from 'lucide-react';
 import { getStreams, addStream, updateStream, deleteStream, type Stream } from '@/lib/streamStore';
 import StreamModal from '@/components/StreamModal';
 import StreamItem from '@/components/StreamItem';
-import { Helmet } from 'react-helmet';
+import StreamItem from '@/components/StreamItem';
 import VideoPlayer from '@/components/VideoPlayer';
 
 const Index = () => {
